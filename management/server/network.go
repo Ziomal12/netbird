@@ -121,7 +121,7 @@ func AllocatePeerIP(ipNet net.IPNet, takenIps []net.IP) (net.IP, error) {
     ips, _ := generateIPs(&ipNet, takenIPMap)
 
     if len(ips) == 0 {
-        return nil, status.Errorf(status.PreconditionFailed, "failed allocating new IP for the ipNet %s - network is out of IPs", ipNet.String())
+        return nil, fmt.Errorf("failed allocating new IP for the ipNet %s - network is out of IPs", ipNet.String())
     }
 
     // Pick an IP based on the allocation method
