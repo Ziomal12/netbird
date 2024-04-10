@@ -139,9 +139,9 @@ func AllocatePeerIP(ipNet net.IPNet, takenIps []net.IP) (net.IP, error) {
     }
 
     // pick the smallest available IP if sequential assignment is enabled
-    if assignSequentialIPs {
+    if assignSequentialIPs == 1 {
         return ips[0], nil
-    }
+    } else {
 
     // pick a random IP
     s := rand.NewSource(time.Now().Unix())
@@ -149,6 +149,7 @@ func AllocatePeerIP(ipNet net.IPNet, takenIps []net.IP) (net.IP, error) {
     intn := r.Intn(len(ips))
 
     return ips[intn], nil
+    }
 }
 
 
