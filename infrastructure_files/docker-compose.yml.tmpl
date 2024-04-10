@@ -47,6 +47,8 @@ services:
     restart: unless-stopped
     depends_on:
       - dashboard
+    environment:
+      - NETBIRD_PREDEFINED_NETWORK
     volumes:
       - $MGMT_VOLUMENAME:/var/lib/netbird
       - $LETSENCRYPT_VOLUMENAME:/etc/letsencrypt:ro
