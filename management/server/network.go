@@ -48,19 +48,35 @@ type Network struct {
 // NewNetwork creates a new Network initializing it with a Serial=0
 // It takes a random /16 subnet from 100.64.0.0/10 (64 different subnets)
 func NewNetwork() *Network {
+    // Check if the NETBIRD_SUBNET environment variable is set
+    customSubnet := os.Getenv("NETBIRD_SUBNET")
+    if customSubnet != "" {
+        if _, subnet, err := net.ParseCIDR(customSubnet); err == nil {
+            return &Network{
+                Identifier: xid.New().String(),
+                Net:        *subnet,
+                Dns:        "",
+                Serial:     0,
+            }
+        }
+        // Handle error if parsing custom subnet fails
+        log.Println("Error parsing custom subnet from NETBIRD_SUBNET variable:", err)
+    }
 
-	n := iplib.NewNet4(net.ParseIP("100.64.0.0"), NetSize)
-	sub, _ := n.Subnet(SubnetSize)
+    // If NETBIRD_SUBNET is not set or parsing fails, choose a random subnet
+    n := iplib.NewNet4(net.ParseIP("100.64.0.0"), NetSize)
+    sub, _ := n.Subnet(SubnetSize)
 
-	s := rand.NewSource(time.Now().Unix())
-	r := rand.New(s)
-	intn := r.Intn(len(sub))
+    s := rand.NewSource(time.Now().Unix())
+    r := rand.New(s)
+    intn := r.Intn(len(sub))
 
-	return &Network{
-		Identifier: xid.New().String(),
-		Net:        sub[intn].IPNet,
-		Dns:        "",
-		Serial:     0}
+    return &Network{
+        Identifier: xid.New().String(),
+        Net:        sub[intn].IPNet,
+        Dns:        "",
+        Serial:     0,
+    }
 }
 
 // IncSerial increments Serial by 1 reflecting that the network state has been changed
