@@ -105,20 +105,14 @@ func (n *Network) Copy() *Network {
 // AllocatePeerIP pics an available IP from an net.IPNet.
 // This method considers already taken IPs and reuses IPs if there are gaps in takenIps
 // E.g. if ipNet=100.30.0.0/16 and takenIps=[100.30.0.1, 100.30.0.4] then the result would be 100.30.0.2 or 100.30.0.3
-func AllocatePeerIP(ipNet net.IPNet, takenIps []net.IP, sequential bool) (net.IP, error) {
+func AllocatePeerIP(ipNet net.IPNet, takenIps []net.IP) (net.IP, error) {
 	takenIPMap := make(map[string]struct{})
 	takenIPMap[ipNet.IP.String()] = struct{}{}
 	for _, ip := range takenIps {
 		takenIPMap[ip.String()] = struct{}{}
 	}
 
-	var ips []net.IP
-	if sequential {
- 	       ips, _ = generateSequentialIPs(&ipNet, takenIPMap)
-	} else {
-        	ips, _ = generateIPs(&ipNet, takenIPMap)
-    }
-
+	ips, _ := generateIPs(&ipNet, takenIPMap)
 
 	if len(ips) == 0 {
 		return nil, status.Errorf(status.PreconditionFailed, "failed allocating new IP for the ipNet %s - network is out of IPs", ipNet.String())
@@ -152,26 +146,6 @@ func generateIPs(ipNet *net.IPNet, exclusions map[string]struct{}) ([]net.IP, in
 	default:
 		return ips[1 : len(ips)-2], lenIPs - 3
 	}
-}
-
-func generateSequentialIPs(ipNet *net.IPNet, exclusions map[string]struct{}) ([]net.IP, int) {
-    var ips []net.IP
-    for ip := ipNet.IP.Mask(ipNet.Mask); ipNet.Contains(ip); incIP(ip) {
-        if _, ok := exclusions[ip.String()]; !ok && ip[3] != 0 {
-            ips = append(ips, copyIP(ip))
-        }
-    }
-
-    // remove network address, broadcast and Fake DNS resolver address
-    lenIPs := len(ips)
-    switch {
-    case lenIPs < 2:
-        return ips, lenIPs
-    case lenIPs < 3:
-        return ips[1 : len(ips)-1], lenIPs - 2
-    default:
-        return ips[1 : len(ips)-2], lenIPs - 3
-    }
 }
 
 func copyIP(ip net.IP) net.IP {
