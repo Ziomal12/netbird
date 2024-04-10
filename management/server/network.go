@@ -6,7 +6,6 @@ import (
 	"sync"
 	"time"
 	"os"
-	"encoding/json"
 
 	"github.com/c-robinson/iplib"
 	"github.com/rs/xid"
