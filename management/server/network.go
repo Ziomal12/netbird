@@ -108,24 +108,34 @@ func (n *Network) Copy() *Network {
 // This method considers already taken IPs and reuses IPs if there are gaps in takenIps
 // E.g. if ipNet=100.30.0.0/16 and takenIps=[100.30.0.1, 100.30.0.4] then the result would be 100.30.0.2 or 100.30.0.3
 func AllocatePeerIP(ipNet net.IPNet, takenIps []net.IP) (net.IP, error) {
-	takenIPMap := make(map[string]struct{})
-	takenIPMap[ipNet.IP.String()] = struct{}{}
-	for _, ip := range takenIps {
-		takenIPMap[ip.String()] = struct{}{}
-	}
+    // Check if NETBIRD_ALLOCATE_SEQUENTIAL_IPS is set to 1
+    allocateSequential := os.Getenv("NETBIRD_ALLOCATE_SEQUENTIAL_IPS") == "1"
+    
+    takenIPMap := make(map[string]struct{})
+    takenIPMap[ipNet.IP.String()] = struct{}{}
+    for _, ip := range takenIps {
+        takenIPMap[ip.String()] = struct{}{}
+    }
 
-	ips, _ := generateIPs(&ipNet, takenIPMap)
+    ips, _ := generateIPs(&ipNet, takenIPMap)
 
-	if len(ips) == 0 {
-		return nil, status.Errorf(status.PreconditionFailed, "failed allocating new IP for the ipNet %s - network is out of IPs", ipNet.String())
-	}
+    if len(ips) == 0 {
+        return nil, fmt.Errorf("failed allocating new IP for the ipNet %s - network is out of IPs", ipNet.String())
+    }
 
-	// pick a random IP
-	s := rand.NewSource(time.Now().Unix())
-	r := rand.New(s)
-	intn := r.Intn(len(ips))
+    // Pick an IP based on the allocation method
+    var selectedIP net.IP
+    if allocateSequential {
+        selectedIP = ips[0] // Allocate the smallest available IP
+    } else {
+        // Pick a random IP
+        s := rand.NewSource(time.Now().Unix())
+        r := rand.New(s)
+        intn := r.Intn(len(ips))
+        selectedIP = ips[intn]
+    }
 
-	return ips[intn], nil
+    return selectedIP, nil
 }
 
 // generateIPs generates a list of all possible IPs of the given network excluding IPs specified in the exclusion list
