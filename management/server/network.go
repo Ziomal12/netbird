@@ -125,7 +125,11 @@ func AllocatePeerIP(ipNet net.IPNet, takenIps []net.IP) (net.IP, error) {
     }
 
     // Check if sequential IP assignment is enabled
-    assignSequentialIPs, _ := strconv.ParseBool(os.Getenv("NETBIRD_ASSIGN_SEQUENTIAL_IPS"))
+    assignSequentialIPsStr := os.Getenv("NETBIRD_ASSIGN_SEQUENTIAL_IPS")
+    assignSequentialIPs, err := strconv.Atoi(assignSequentialIPsStr)
+    if err != nil {
+        return nil, err
+    }
 
     ips, _ := generateIPs(&ipNet, takenIPMap)
 
