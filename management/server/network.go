@@ -106,24 +106,36 @@ func (n *Network) Copy() *Network {
 // This method considers already taken IPs and reuses IPs if there are gaps in takenIps
 // E.g. if ipNet=100.30.0.0/16 and takenIps=[100.30.0.1, 100.30.0.4] then the result would be 100.30.0.2 or 100.30.0.3
 func AllocatePeerIP(ipNet net.IPNet, takenIps []net.IP) (net.IP, error) {
-	takenIPMap := make(map[string]struct{})
-	takenIPMap[ipNet.IP.String()] = struct{}{}
-	for _, ip := range takenIps {
-		takenIPMap[ip.String()] = struct{}{}
-	}
+    // Check if NETBIRD_ALLOCATE_SEQUENTIAL_IPS environment variable is set to "1" for sequential allocation
+    allocateSequential := os.Getenv("NETBIRD_ALLOCATE_SEQUENTIAL_IPS") == "1"
 
-	ips, _ := generateIPs(&ipNet, takenIPMap)
+    takenIPMap := make(map[string]struct{})
+    takenIPMap[ipNet.IP.String()] = struct{}{}
+    for _, ip := range takenIps {
+        takenIPMap[ip.String()] = struct{}{}
+    }
 
-	if len(ips) == 0 {
-		return nil, status.Errorf(status.PreconditionFailed, "failed allocating new IP for the ipNet %s - network is out of IPs", ipNet.String())
-	}
+    var ips []net.IP
+    if allocateSequential {
+        ips, _ = generateSequentialIPs(&ipNet, takenIPMap)
+    } else {
+        ips, _ = generateIPs(&ipNet, takenIpMap)
+    }
 
-	// pick a random IP
-	s := rand.NewSource(time.Now().Unix())
-	r := rand.New(s)
-	intn := r.Intn(len(ips))
+    // Handle case when no IPs are available
+    if len(ips) == 0 {
+        return nil, status.Errorf(status.PreconditionFailed, "failed allocating new IP for the ipNet %s - network is out of IPs", ipNet.String())
+    }
 
-	return ips[intn], nil
+    // Pick a random or sequential IP based on allocation mode
+    if allocateSequential {
+        return ips[0], nil
+    } else {
+        s := rand.NewSource(time.Now().Unix())
+        r := rand.New(s)
+        intn := r.Intn(len(ips))
+        return ips[intn], nil
+    }
 }
 
 // generateIPs generates a list of all possible IPs of the given network excluding IPs specified in the exclusion list
@@ -146,6 +158,26 @@ func generateIPs(ipNet *net.IPNet, exclusions map[string]struct{}) ([]net.IP, in
 	default:
 		return ips[1 : len(ips)-2], lenIPs - 3
 	}
+}
+
+func generateSequentialIPs(ipNet *net.IPNet, exclusions map[string]struct{}) ([]net.IP, int) {
+    var ips []net.IP
+    for ip := ipNet.IP.Mask(ipNet.Mask); ipNet.Contains(ip); incIP(ip) {
+        if _, ok := exclusions[ip.String()]; !ok && ip[3] != 0 {
+            ips = append(ips, copyIP(ip))
+        }
+    }
+
+    // remove network address, broadcast and Fake DNS resolver address
+    lenIPs := len(ips)
+    switch {
+    case lenIPs < 2:
+        return ips, lenIPs
+    case lenIPs < 3:
+        return ips[1 : len(ips)-1], lenIPs - 2
+    default:
+        return ips[1 : len(ips)-2], lenIPs - 3
+    }
 }
 
 func copyIP(ip net.IP) net.IP {
