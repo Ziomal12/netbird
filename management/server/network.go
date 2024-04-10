@@ -47,15 +47,7 @@ type Network struct {
 
 // NewNetwork creates a new Network initializing it with a Serial=0
 // It takes a random /16 subnet from 100.64.0.0/10 (64 different subnets)
-func NewNetwork(predefinedSubnet *net.IPNet) *Network {
-    if predefinedSubnet != nil {
-        return &Network{
-            Identifier: xid.New().String(),
-            Net:        *predefinedSubnet,
-            Dns:        "",
-            Serial:     0,
-        }
-    }
+func NewNetwork() *Network {
 
 	n := iplib.NewNet4(net.ParseIP("100.64.0.0"), NetSize)
 	sub, _ := n.Subnet(SubnetSize)
