@@ -5,6 +5,7 @@ import (
 	"net"
 	"sync"
 	"time"
+	"os"
 
 	"github.com/c-robinson/iplib"
 	"github.com/rs/xid"
@@ -47,20 +48,46 @@ type Network struct {
 
 // NewNetwork creates a new Network initializing it with a Serial=0
 // It takes a random /16 subnet from 100.64.0.0/10 (64 different subnets)
+// GetPredefinedNetwork parses the environment variable 'NETBIRD_PREDEFINED_NETWORK' if set
+// and returns the subnet in CIDR notation, otherwise returns an empty string
+func GetPredefinedNetwork() string {
+    network := os.Getenv("NETBIRD_PREDEFINED_NETWORK")
+    return network
+}
+
+// NewNetwork creates a new Network initializing it with a Serial=0
+// If the 'NETBIRD_PREDEFINED_NETWORK' environment variable is set, it uses that network, otherwise generates a random /16 subnet from 100.64.0.0/10
 func NewNetwork() *Network {
+    predefinedNetwork := GetPredefinedNetwork()
 
-	n := iplib.NewNet4(net.ParseIP("100.64.0.0"), NetSize)
-	sub, _ := n.Subnet(SubnetSize)
+    if predefinedNetwork != "" {
+        _, ipNet, err := net.ParseCIDR(predefinedNetwork)
+        if err != nil {
+            // Handle error parsing the subnet
+            panic(err)
+        }
 
-	s := rand.NewSource(time.Now().Unix())
-	r := rand.New(s)
-	intn := r.Intn(len(sub))
+        return &Network{
+            Identifier: xid.New().String(),
+            Net:        *ipNet,
+            Dns:        "",
+            Serial:     0,
+        }
+    } else {
+        n := iplib.NewNet4(net.ParseIP("100.64.0.0"), NetSize)
+        sub, _ := n.Subnet(SubnetSize)
 
-	return &Network{
-		Identifier: xid.New().String(),
-		Net:        sub[intn].IPNet,
-		Dns:        "",
-		Serial:     0}
+        s := rand.NewSource(time.Now().Unix())
+        r := rand.New(s)
+        intn := r.Intn(len(sub))
+
+        return &Network{
+            Identifier: xid.New().String(),
+            Net:        sub[intn].IPNet,
+            Dns:        "",
+            Serial:     0,
+        }
+    }
 }
 
 // IncSerial increments Serial by 1 reflecting that the network state has been changed
